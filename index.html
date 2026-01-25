@@ -3,147 +3,221 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Charity Poker Seating</title>
+    <title>Tournament Seating Coordinator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .highlight { border: 4px solid #eab308; transform: scale(1.02); z-index: 10; box-shadow: 0 0 20px rgba(234, 179, 8, 0.4); }
-        .admin-only { display: none; } /* Hidden by default for players */
+        .admin-only { display: none; }
         body.admin-mode .admin-only { display: block; }
         body.admin-mode .player-view { display: none; }
+        .table-card { transition: all 0.3s ease; }
     </style>
 </head>
-<body class="bg-slate-950 text-white p-4 font-sans min-h-screen flex flex-col">
+<body class="bg-slate-950 text-white p-4 font-sans min-h-screen">
 
-    <div class="max-w-4xl mx-auto w-full flex-grow">
+    <div class="max-w-5xl mx-auto w-full">
         
-        <header class="flex justify-between items-center mb-8 p-4 bg-slate-900 rounded-xl border border-slate-800">
+        <header class="flex justify-between items-center mb-6 p-5 bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl">
             <div>
-                <h1 class="text-xl font-black text-red-600 uppercase italic">Poker Charity Event</h1>
-                <p id="mode-label" class="text-slate-500 text-[10px] uppercase tracking-widest">Player Check-In Mode</p>
+                <h1 class="text-2xl font-black text-red-600 uppercase italic leading-none">Charity Poker</h1>
+                <p id="mode-label" class="text-slate-500 text-[10px] uppercase tracking-widest mt-1">Player Check-In Mode</p>
             </div>
-            <button onclick="toggleAdmin()" class="opacity-0 w-10 h-10">Admin</button>
+            <button onclick="requestAdminAccess()" class="bg-slate-800 hover:bg-slate-700 text-slate-400 text-[10px] font-bold py-2 px-4 rounded-lg border border-slate-700 transition">
+                ADMIN ACCESS
+            </button>
         </header>
 
-        <div class="player-view text-center space-y-8 py-10">
-            <h2 class="text-3xl font-bold">Find Your Table</h2>
-            <div class="max-w-xs mx-auto">
-                <label class="block text-slate-400 text-sm mb-2">Enter the number assigned to you:</label>
-                <input type="number" id="playerSearch" placeholder="Ex: 42" 
-                       class="w-full p-6 bg-slate-800 rounded-2xl border-4 border-red-600 text-4xl text-center font-black outline-none focus:ring-4 focus:ring-red-500/50">
-                <button onclick="checkSeat()" class="w-full mt-4 bg-red-600 hover:bg-red-700 p-4 rounded-xl font-bold text-lg transition shadow-lg">FIND MY SEAT</button>
+        <div class="player-view text-center space-y-10 py-12">
+            <div class="space-y-2">
+                <h2 class="text-4xl font-black text-white">FIND YOUR SEAT</h2>
+                <p class="text-slate-400">Enter your assigned player number below</p>
+            </div>
+            
+            <div class="max-w-xs mx-auto space-y-4">
+                <input type="number" id="playerSearch" placeholder="00" 
+                       class="w-full p-8 bg-slate-900 rounded-3xl border-4 border-slate-800 text-6xl text-center font-black text-red-500 outline-none focus:border-red-600 transition-all">
+                <button onclick="checkSeat()" class="w-full bg-red-600 hover:bg-red-700 p-5 rounded-2xl font-black text-xl shadow-lg active:scale-95 transition">SEARCH</button>
             </div>
 
-            <div id="resultArea" class="hidden animate-bounce mt-10 p-8 bg-slate-900 border-2 border-yellow-500 rounded-3xl shadow-2xl">
-                <span class="text-slate-400 uppercase text-sm tracking-tighter">Your Assignment:</span>
-                <div id="tableResult" class="text-6xl font-black text-yellow-500 mt-2">TABLE 1</div>
+            <div id="resultArea" class="hidden mt-10 p-10 bg-slate-900 border-2 border-yellow-600 rounded-[2rem] shadow-2xl animate-in fade-in zoom-in duration-300">
+                <span id="resultLabel" class="text-slate-500 uppercase text-xs font-bold tracking-widest">Your Assignment</span>
+                <div id="tableResult" class="text-7xl font-black text-yellow-500 mt-2 tracking-tighter">TABLE 1</div>
+                <button onclick="resetSearch()" class="mt-6 text-slate-500 text-sm underline">Search Another Number</button>
             </div>
         </div>
 
-        <div class="admin-only space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
-                    <h3 class="text-red-500 font-bold mb-2">Master Shuffle</h3>
+        <div class="admin-only space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl">
+                    <h3 class="text-red-500 font-black text-sm mb-4 uppercase italic">1. Table Configuration</h3>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="text-[10px] text-slate-500 font-bold uppercase">Total Players</label>
+                            <input type="number" id="playerCount" value="64" class="w-full p-3 bg-slate-800 rounded-xl border border-slate-700 text-center font-bold">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-500 font-bold uppercase">Seats Per Table</label>
+                            <input type="number" id="tableSize" value="8" class="w-full p-3 bg-slate-800 rounded-xl border border-slate-700 text-center font-bold">
+                        </div>
+                    </div>
+                    <button onclick="fullShuffle()" class="w-full bg-red-600 hover:bg-red-700 p-4 rounded-xl font-black text-sm shadow-lg">RE-SHUFFLE ALL SEATS</button>
+                </div>
+
+                <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl border-t-4 border-t-blue-600">
+                    <h3 class="text-blue-500 font-black text-sm mb-4 uppercase italic">2. Late Arrivals</h3>
+                    <p class="text-[10px] text-slate-500 mb-4">Adds player to the first available open seat.</p>
                     <div class="flex gap-2">
-                        <input type="number" id="playerCount" value="64" class="w-1/2 p-2 bg-slate-800 rounded text-center">
-                        <button onclick="fullShuffle()" class="w-1/2 bg-red-600 p-2 rounded font-bold text-xs">RESET ALL</button>
+                        <input type="number" id="latePlayerId" placeholder="ID #" class="flex-1 p-3 bg-slate-800 rounded-xl border border-slate-700 text-center font-bold">
+                        <button onclick="addLatePlayer()" class="bg-blue-600 hover:bg-blue-700 px-6 rounded-xl font-black text-sm">ADD</button>
                     </div>
                 </div>
-                <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 border-t-2 border-t-blue-500">
-                    <h3 class="text-blue-500 font-bold mb-2">Add Late Player</h3>
-                    <div class="flex gap-2">
-                        <input type="number" id="latePlayerId" placeholder="ID #" class="w-1/2 p-2 bg-slate-800 rounded text-center">
-                        <button onclick="addLatePlayer()" class="w-1/2 bg-blue-600 p-2 rounded font-bold text-xs">ADD SEAT</button>
+
+                <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl flex flex-col justify-center items-center">
+                    <div class="text-center">
+                        <span class="text-[10px] text-slate-500 uppercase font-black">Room Capacity</span>
+                        <div id="statDisplay" class="text-4xl font-black text-white mt-1">0 / 0</div>
+                        <p class="text-slate-600 text-[10px] mt-2 italic">Seats Filled vs Total Available</p>
                     </div>
                 </div>
             </div>
-            <div id="tableContainer" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
-            <button onclick="toggleAdmin()" class="w-full p-2 text-slate-600 text-xs">Exit Admin Mode</button>
+
+            <div id="tableContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pb-20"></div>
+
+            <div class="fixed bottom-0 left-0 w-full p-4 bg-slate-950/80 backdrop-blur-md">
+                <button onclick="exitAdmin()" class="w-full max-w-xs mx-auto block bg-slate-800 p-3 rounded-xl text-xs font-bold text-slate-400 border border-slate-700">EXIT ADMIN PANEL</button>
+            </div>
         </div>
     </div>
 
     <script>
         let tables = [];
 
-        // ADMIN FUNCTIONS
-        function toggleAdmin() {
-            document.body.classList.toggle('admin-mode');
-            const isAdmin = document.body.classList.contains('admin-mode');
-            document.getElementById('mode-label').innerText = isAdmin ? "ADMIN CONTROL" : "Player Check-In Mode";
+        function requestAdminAccess() {
+            const msg = "This area is for TOURNAMENT FACILITATORS ONLY.\n\nPlease do not access unless you are authorized to manage seating.\n\nContinue to Admin Panel?";
+            if (confirm(msg)) {
+                document.body.classList.add('admin-mode');
+                document.getElementById('mode-label').innerText = "ADMIN CONTROL PANEL";
+                renderAdmin();
+            }
+        }
+
+        function exitAdmin() {
+            document.body.classList.remove('admin-mode');
+            document.getElementById('mode-label').innerText = "Player Check-In Mode";
         }
 
         function fullShuffle() {
+            if(!confirm("Are you sure? This will wipe all current assignments!")) return;
+            
             const pCount = parseInt(document.getElementById('playerCount').value);
-            const tSize = 8; // Defaulting to 8
+            const tSize = parseInt(document.getElementById('tableSize').value);
+            
             let players = Array.from({length: pCount}, (_, i) => i + 1);
             for (let i = players.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [players[i], players[j]] = [players[j], players[i]];
             }
+
             tables = [];
-            for(let t = 0; t < Math.ceil(pCount / tSize); t++) {
-                tables.push({ id: t + 1, players: players.slice(t * tSize, (t + 1) * tSize), max: tSize });
+            const numTables = Math.ceil(pCount / tSize);
+            for(let t = 0; t < numTables; t++) {
+                tables.push({
+                    id: t + 1,
+                    players: players.slice(t * tSize, (t + 1) * tSize),
+                    max: tSize
+                });
             }
-            saveData();
-            renderAdmin();
+            saveAndRender();
         }
 
         function addLatePlayer() {
             const id = parseInt(document.getElementById('latePlayerId').value);
-            if(!id || tables.some(t => t.players.includes(id))) return;
+            const tSize = parseInt(document.getElementById('tableSize').value);
+            if(!id) return;
+            if(tables.some(t => t.players.includes(id))) return alert("Player already seated!");
+
             let target = tables.find(t => t.players.length < t.max);
-            if(target) target.players.push(id);
-            else tables.push({ id: tables.length + 1, players: [id], max: 8 });
-            saveData();
-            renderAdmin();
+            if(target) {
+                target.players.push(id);
+            } else {
+                tables.push({ id: tables.length + 1, players: [id], max: tSize });
+            }
+            
+            document.getElementById('latePlayerId').value = '';
+            saveAndRender();
         }
 
-        // PLAYER FUNCTIONS
         function checkSeat() {
             const searchVal = parseInt(document.getElementById('playerSearch').value);
             const resultArea = document.getElementById('resultArea');
             const tableResult = document.getElementById('tableResult');
-            
+            const label = document.getElementById('resultLabel');
+
             if(!searchVal) return;
 
-            const foundTable = tables.find(t => t.players.includes(searchVal));
-            
+            const found = tables.find(t => t.players.includes(searchVal));
             resultArea.classList.remove('hidden');
-            if(foundTable) {
-                tableResult.innerText = `TABLE ${foundTable.id}`;
+            
+            if(found) {
+                label.innerText = "Your Assignment";
+                label.classList.remove('text-red-500');
+                tableResult.innerText = `TABLE ${found.id}`;
                 tableResult.classList.remove('text-red-500');
                 tableResult.classList.add('text-yellow-500');
             } else {
+                label.innerText = "Error";
+                label.classList.add('text-red-500');
                 tableResult.innerText = "NOT FOUND";
                 tableResult.classList.remove('text-yellow-500');
                 tableResult.classList.add('text-red-500');
             }
         }
 
-        // DATA PERSISTENCE (Crucial for GitHub Pages refreshes)
-        function saveData() {
-            localStorage.setItem('poker_tables', JSON.stringify(tables));
+        function resetSearch() {
+            document.getElementById('resultArea').classList.add('hidden');
+            document.getElementById('playerSearch').value = '';
         }
 
-        function loadData() {
-            const saved = localStorage.getItem('poker_tables');
-            if(saved) {
-                tables = JSON.parse(saved);
-                renderAdmin();
-            }
+        function saveAndRender() {
+            localStorage.setItem('poker_data_v5', JSON.stringify(tables));
+            renderAdmin();
         }
 
         function renderAdmin() {
             const container = document.getElementById('tableContainer');
+            const stats = document.getElementById('statDisplay');
             container.innerHTML = '';
+            
+            let totalSeated = 0;
+            let totalCapacity = 0;
+
             tables.forEach(t => {
-                const div = document.createElement('div');
-                div.className = 'bg-slate-900 p-2 rounded border border-slate-800 text-[10px]';
-                div.innerHTML = `<b class="text-red-500">T-${t.id}</b>: ${t.players.join(', ')}`;
-                container.appendChild(div);
+                totalSeated += t.players.length;
+                totalCapacity += t.max;
+                
+                const card = document.createElement('div');
+                card.className = 'table-card bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg';
+                card.innerHTML = `
+                    <div class="bg-slate-800 px-3 py-2 border-b border-slate-700 flex justify-between items-center">
+                        <span class="font-black text-xs italic">TABLE ${t.id}</span>
+                        <span class="text-[9px] text-slate-500 uppercase">${t.players.length}/${t.max}</span>
+                    </div>
+                    <div class="p-3 text-xs font-mono text-red-400 leading-relaxed">
+                        ${t.players.length > 0 ? t.players.sort((a,b)=>a-b).join(', ') : '<span class="text-slate-700 italic">Empty</span>'}
+                    </div>
+                `;
+                container.appendChild(card);
             });
+
+            stats.innerText = `${totalSeated} / ${totalCapacity}`;
         }
 
-        loadData();
+        // Load data on start
+        const saved = localStorage.getItem('poker_data_v5');
+        if(saved) {
+            tables = JSON.parse(saved);
+            renderAdmin();
+        }
     </script>
 </body>
 </html>
