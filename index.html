@@ -1,131 +1,157 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Poker Admin - Fix & Export</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-slate-950 text-white p-4 font-sans min-h-screen">
-    <div class="max-w-5xl mx-auto w-full">
-        
-        <header class="flex flex-col md:flex-row justify-between items-center mb-6 p-5 bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl gap-4">
-            <div>
-                <h1 class="text-2xl font-black text-red-600 uppercase italic leading-none">Admin Panel</h1>
-                <p class="text-slate-500 text-[10px] uppercase tracking-widest mt-1">Shuffle & Export Mode</p>
-            </div>
-            <button onclick="exportData()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-xl shadow-lg transition transform active:scale-95">
-                EXPORT FOR GITHUB
-            </button>
-        </header>
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl">
-                <h3 class="text-red-500 font-black text-sm mb-4 italic uppercase tracking-wider">1. Configure Tournament</h3>
-                <div class="grid grid-cols-2 gap-4 mb-4">
-                    <div>
-                        <label class="text-[10px] text-slate-500 font-bold uppercase block mb-1">Total Players</label>
-                        <input type="number" id="playerCount" value="64" class="w-full p-3 bg-slate-800 rounded-xl border border-slate-700 text-center font-bold text-xl outline-none focus:border-red-600">
-                    </div>
-                    <div>
-                        <label class="text-[10px] text-slate-500 font-bold uppercase block mb-1">Seats Per Table</label>
-                        <input type="number" id="tableSize" value="8" class="w-full p-3 bg-slate-800 rounded-xl border border-slate-700 text-center font-bold text-xl outline-none focus:border-red-600">
-                    </div>
-                </div>
-                <button onclick="fullShuffle()" class="w-full bg-red-600 hover:bg-red-700 p-4 rounded-xl font-black text-sm uppercase shadow-lg transition">
-                    GENERATE & SHUFFLE SEATS
-                </button>
-            </div>
-
-            <div id="exportArea" class="hidden bg-slate-900 p-6 rounded-2xl border-2 border-green-500 shadow-[0_0_20px_rgba(34,197,94,0.2)]">
-                <h3 class="text-green-500 font-black text-sm mb-2">STEP 2: COPY THIS DATA</h3>
-                <textarea id="dataBox" class="w-full h-24 bg-black text-green-400 p-3 text-[10px] font-mono rounded-lg border border-green-900" readonly></textarea>
-                <p class="text-[10px] text-slate-400 mt-2 italic">Copy this and paste it into your 'Static Search' code on GitHub.</p>
-            </div>
-        </div>
-
-        <h3 class="text-slate-500 font-bold text-xs uppercase mb-4 tracking-widest px-2">Live Table Preview</h3>
-        <div id="tableContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pb-12">
-            </div>
-    </div>
-
-    <script>
+<script>
         let tables = [];
 
+        function requestAdminAccess() {
+            const msg = "This area is for TOURNAMENT FACILITATORS ONLY.\n\nPlease do not access unless you are authorized to manage seating.\n\nContinue to Admin Panel?";
+            if (confirm(msg)) {
+                document.body.classList.add('admin-mode');
+                document.getElementById('mode-label').innerText = "ADMIN CONTROL PANEL";
+                renderAdmin();
+            }
+        }
+
+        function exitAdmin() {
+            document.body.classList.remove('admin-mode');
+            document.getElementById('mode-label').innerText = "Player Check-In Mode";
+        }
+
         function fullShuffle() {
+            if(!confirm("Are you sure? This will wipe all current assignments!")) return;
+            
             const pCount = parseInt(document.getElementById('playerCount').value);
             const tSize = parseInt(document.getElementById('tableSize').value);
             
-            if (isNaN(pCount) || isNaN(tSize) || pCount <= 0 || tSize <= 0) {
-                alert("Please enter valid numbers for players and seats.");
-                return;
-            }
+            if (isNaN(pCount) || pCount <= 0) return alert("Please enter a valid player count.");
 
-            // Create and shuffle player array
+            // 1. Create and Shuffle Player Array
             let players = Array.from({length: pCount}, (_, i) => i + 1);
             for (let i = players.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [players[i], players[j]] = [players[j], players[i]];
             }
 
-            // Group into tables
-            tables = [];
+            // 2. Calculate Balancing Logic
             const numTables = Math.ceil(pCount / tSize);
-            for(let t = 0; t < numTables; t++) {
+            const basePlayersPerTable = Math.floor(pCount / numTables);
+            const extraPlayers = pCount % numTables; 
+
+            tables = [];
+            let currentIndex = 0;
+
+            for (let t = 0; t < numTables; t++) {
+                // Each table gets the base count, plus 1 if there are extras left to distribute
+                const countForThisTable = basePlayersPerTable + (t < extraPlayers ? 1 : 0);
+                
                 tables.push({
                     id: t + 1,
-                    players: players.slice(t * tSize, (t + 1) * tSize).sort((a,b) => a-b),
+                    players: players.slice(currentIndex, currentIndex + countForThisTable).sort((a,b) => a-b),
                     max: tSize
                 });
+                
+                currentIndex += countForThisTable;
             }
 
-            console.log("Shuffled Tables:", tables); // Troubleshooting help
-            renderDisplay();
-            
-            // Hide export area if they re-shuffle to prevent old data usage
-            document.getElementById('exportArea').classList.add('hidden');
+            saveAndRender();
         }
 
-        function exportData() {
-            const area = document.getElementById('exportArea');
-            const box = document.getElementById('dataBox');
-            
-            if(tables.length === 0) {
-                alert("You must shuffle the seats first!");
-                return;
-            }
+        function addLatePlayer() {
+            const id = parseInt(document.getElementById('latePlayerId').value);
+            const tSize = parseInt(document.getElementById('tableSize').value);
+            if(!id) return;
+            if(tables.some(t => t.players.includes(id))) return alert("Player already seated!");
 
-            area.classList.remove('hidden');
-            box.value = JSON.stringify(tables);
-            box.select();
+            // Find the table with the FEWEST players to keep it balanced
+            let target = [...tables].sort((a, b) => a.players.length - b.players.length)[0];
             
-            try {
-                document.execCommand('copy');
-                alert("Success! Data copied to clipboard. Ready to paste into GitHub.");
-            } catch (err) {
-                alert("Data generated, please copy manually from the green box.");
+            if(target && target.players.length < target.max) {
+                target.players.push(id);
+                target.players.sort((a,b) => a-b);
+            } else {
+                // If every existing table is at the user-defined max, start a new one
+                tables.push({ id: tables.length + 1, players: [id], max: tSize });
+            }
+            
+            document.getElementById('latePlayerId').value = '';
+            saveAndRender();
+        }
+
+        function checkSeat() {
+            const searchVal = parseInt(document.getElementById('playerSearch').value);
+            const resultArea = document.getElementById('resultArea');
+            const tableResult = document.getElementById('tableResult');
+            const label = document.getElementById('resultLabel');
+
+            if(!searchVal) return;
+
+            const found = tables.find(t => t.players.includes(searchVal));
+            resultArea.classList.remove('hidden');
+            
+            if(found) {
+                label.innerText = "Your Assignment";
+                label.classList.remove('text-red-500');
+                tableResult.innerText = `TABLE ${found.id}`;
+                tableResult.classList.remove('text-red-500');
+                tableResult.classList.add('text-yellow-500');
+            } else {
+                label.innerText = "Error";
+                label.classList.add('text-red-500');
+                tableResult.innerText = "NOT FOUND";
+                tableResult.classList.remove('text-yellow-500');
+                tableResult.classList.add('text-red-500');
             }
         }
 
-        function renderDisplay() {
+        function resetSearch() {
+            document.getElementById('resultArea').classList.add('hidden');
+            document.getElementById('playerSearch').value = '';
+        }
+
+        function saveAndRender() {
+            localStorage.setItem('poker_data_v5', JSON.stringify(tables));
+            renderAdmin();
+        }
+
+        // Added this back so you can get the data to GitHub easily
+        function exportDataForGitHub() {
+            if(tables.length === 0) return alert("Shuffle first!");
+            const dataString = JSON.stringify(tables);
+            navigator.clipboard.writeText(dataString).then(() => {
+                alert("Table data copied to clipboard! Paste this into your GitHub code.");
+            });
+        }
+
+        function renderAdmin() {
             const container = document.getElementById('tableContainer');
+            const stats = document.getElementById('statDisplay');
             container.innerHTML = '';
+            
+            let totalSeated = 0;
+            let totalCapacity = 0;
 
             tables.forEach(t => {
+                totalSeated += t.players.length;
+                totalCapacity += t.max;
+                
                 const card = document.createElement('div');
-                card.className = 'bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg';
+                card.className = 'table-card bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg';
                 card.innerHTML = `
                     <div class="bg-slate-800 px-3 py-2 border-b border-slate-700 flex justify-between items-center">
-                        <span class="font-black text-xs italic text-red-500">TABLE ${t.id}</span>
-                        <span class="text-[9px] text-slate-500 font-mono">${t.players.length} PLRS</span>
+                        <span class="font-black text-xs italic">TABLE ${t.id}</span>
+                        <span class="text-[9px] text-slate-500 uppercase">${t.players.length}/${t.max}</span>
                     </div>
-                    <div class="p-3 text-sm font-mono text-slate-300">
-                        ${t.players.join(', ')}
+                    <div class="p-3 text-xs font-mono text-red-400 leading-relaxed">
+                        ${t.players.length > 0 ? t.players.sort((a,b)=>a-b).join(', ') : '<span class="text-slate-700 italic">Empty</span>'}
                     </div>
                 `;
                 container.appendChild(card);
             });
+
+            stats.innerText = `${totalSeated} / ${totalCapacity}`;
+        }
+
+        const saved = localStorage.getItem('poker_data_v5');
+        if(saved) {
+            tables = JSON.parse(saved);
+            renderAdmin();
         }
     </script>
-</body>
-</html>
